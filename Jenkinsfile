@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         VENV_DIR = 'venv'
+        GEMINI_API_KEY = credentials('GEMINI_API_KEY') // Jenkins Secret Text
+        LOG_DIR = 'logs'
     }
 
     stages {
@@ -16,6 +18,7 @@ pipeline {
             steps {
                 echo 'Creating virtual environment and installing dependencies...'
                 sh '''
+                    set -e
                     python3 -m venv ${VENV_DIR}
                     . ${VENV_DIR}/bin/activate
                     python -m pip install --upgrade pip
@@ -28,8 +31,9 @@ pipeline {
             steps {
                 echo 'Running unit tests...'
                 sh '''
+                    set -e
                     . ${VENV_DIR}/bin/activate
-                    pytest || echo "No tests found or some tests failed"
+                    pytest || echo "Unit tests failed"
                 '''
             }
         }
@@ -38,9 +42,21 @@ pipeline {
             steps {
                 echo 'Running performance tests...'
                 sh '''
+                    set -e
                     . ${VENV_DIR}/bin/activate
-                    python performance_test.py || echo "Performance script failed"
+                    python performance_test.py || echo "Performance test script failed"
                     locust -f load_test.py --headless -u 5 -r 1 --run-time 1m || echo "Load test failed"
+                '''
+            }
+        }
+
+        stage('Analyze Logs with LLM') {
+            steps {
+                echo 'Sending logs to Google Gemini LLM for analysis...'
+                sh '''
+                    set -e
+                    . ${VENV_DIR}/bin/activate
+                    python rag_log_analyzer.py --log_dir ${LOG_DIR} --api_key ${GEMINI_API_KEY}
                 '''
             }
         }
