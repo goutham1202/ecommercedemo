@@ -40,12 +40,20 @@ def send_to_llm(log_text, api_key):
     return response.json()
 
 def extract_alerts(llm_response):
-    """Extract and print the alert from the LLM response."""
+    """Safely extract alert text from LLM response."""
+    print("\n===== Full LLM Response =====\n")
+    print(json.dumps(llm_response, indent=2))  # Print full response for debugging
+    print("\n=============================\n")
+
+    # Try to extract text alerts
     try:
-        text_parts = llm_response['results'][0]['content'][0]['text']
-        print("\n===== LLM Alert =====\n")
-        print(text_parts)
-        print("\n=====================\n")
+        text_parts = llm_response.get('results', [{}])[0].get('content', [{}])[0].get('text', None)
+        if text_parts:
+            print("\n===== LLM Alert =====\n")
+            print(text_parts)
+            print("\n=====================\n")
+        else:
+            print("No alert text found in LLM response.")
     except Exception as e:
         print("Failed to parse LLM response:", e)
 
