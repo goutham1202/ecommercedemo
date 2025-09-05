@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         VENV_DIR = 'venv'
-        GEMINI_API_KEY = credentials('GEMINI_API_KEY') // Jenkins Secret Text
+        GEMINI_API_KEY = credentials('GEMINI_API_KEY')
         LOG_DIR = 'logs'
     }
 
@@ -23,6 +23,7 @@ pipeline {
                     . ${VENV_DIR}/bin/activate
                     python -m pip install --upgrade pip
                     python -m pip install -r requirements.txt
+                    mkdir -p ${LOG_DIR}
                 '''
             }
         }
@@ -31,9 +32,10 @@ pipeline {
             steps {
                 echo 'Running unit tests...'
                 sh '''
-                    set -e
+                    set +e
                     . ${VENV_DIR}/bin/activate
-                    pytest || echo "Unit tests failed"
+                    pytest > ${LOG_DIR}/unit_tests.log 2>&1
+                    test $? -eq 0 || echo "Unit tests failed (see logs/unit_tests.log)"
                 '''
             }
         }
@@ -42,10 +44,14 @@ pipeline {
             steps {
                 echo 'Running performance tests...'
                 sh '''
-                    set -e
+                    set +e
                     . ${VENV_DIR}/bin/activate
-                    python performance_test.py || echo "Performance test script failed"
-                    locust -f load_test.py --headless -u 5 -r 1 --run-time 1m || echo "Load test failed"
+                    python performance_test.py > ${LOG_DIR}/performance_test.log 2>&1
+                    test $? -eq 0 || echo "Performance tests failed (see logs/performance_test.log)"
+
+                    locust -f load_test.py --headless -u 5 -r 1 --run-time 1m \
+                        > ${LOG_DIR}/load_test.log 2>&1
+                    test $? -eq 0 || echo "Load test failed (see logs/load_test.log)"
                 '''
             }
         }
@@ -56,8 +62,10 @@ pipeline {
                 sh '''
                     set -e
                     . ${VENV_DIR}/bin/activate
-                    python rag_log_analyzer.py --log_dir ${LOG_DIR} --api_key ${GEMINI_API_KEY}
+                    python rag_log_analyzer.py --log_dir ${LOG_DIR} --api_key ${GEMINI_API_KEY} \
+                        > ${LOG_DIR}/llm_analysis.log 2>&1
                 '''
+                echo 'LLM analysis completed. Results are in logs/llm_analysis.log'
             }
         }
     }
@@ -68,10 +76,10 @@ pipeline {
             archiveArtifacts artifacts: 'logs/**', allowEmptyArchive: true
         }
         success {
-            echo 'Pipeline completed successfully!'
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline completed with failures!'
+            echo '❌ Pipeline completed with failures! Check logs for details.'
         }
     }
 }
