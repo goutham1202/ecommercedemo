@@ -40,20 +40,25 @@ def send_to_llm(log_text, api_key):
     return response.json()
 
 def extract_alerts(llm_response):
-    """Safely extract alert text from LLM response."""
+    """Extract and print the alert from LLM response (compatible with Gemini's 'candidates')."""
     print("\n===== Full LLM Response =====\n")
-    print(json.dumps(llm_response, indent=2))  # Print full response for debugging
+    print(json.dumps(llm_response, indent=2))
     print("\n=============================\n")
 
-    # Try to extract text alerts
     try:
-        text_parts = llm_response.get('results', [{}])[0].get('content', [{}])[0].get('text', None)
-        if text_parts:
-            print("\n===== LLM Alert =====\n")
-            print(text_parts)
-            print("\n=====================\n")
-        else:
-            print("No alert text found in LLM response.")
+        candidates = llm_response.get("candidates", [])
+        if not candidates:
+            print("No candidates found in LLM response.")
+            return
+        
+        for idx, candidate in enumerate(candidates):
+            parts = candidate.get("content", {}).get("parts", [])
+            for part in parts:
+                text = part.get("text", "").strip()
+                if text:
+                    print(f"\n===== LLM Alert (Candidate {idx+1}) =====\n")
+                    print(text)
+                    print("\n======================================\n")
     except Exception as e:
         print("Failed to parse LLM response:", e)
 

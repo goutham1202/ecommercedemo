@@ -59,16 +59,15 @@ pipeline {
         stage('Analyze Logs with LLM') {
             steps {
                 echo 'Sending logs to Google Gemini LLM for analysis...'
-                sh '''
-                    set -e
-                    . ${VENV_DIR}/bin/activate
-                    python rag_log_analyzer.py --log_dir ${LOG_DIR} --api_key ${GEMINI_API_KEY} \
-                        > ${LOG_DIR}/llm_analysis.log 2>&1
-                '''
-                echo 'LLM analysis completed. Results are in logs/llm_analysis.log'
+            sh '''
+                . ${VENV_DIR}/bin/activate
+                echo "===== LLM Analysis Start ====="
+                python rag_log_analyzer.py --log_dir ${LOG_DIR} --api_key ${GEMINI_API_KEY}
+                echo "===== LLM Analysis End ====="
+            '''
             }
         }
-    }
+
 
     post {
         always {
